@@ -1,0 +1,271 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+    margin: 0;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+    font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
+}
+
+@layer base {
+    :root {
+        /* Nature-inspired color palette with earthy tones */
+        --background: 45 20% 96%;  /* Soft beige background */
+        --foreground: 25 20% 15%;  /* Dark brown for text */
+        
+        --card: 0 0% 100%;  /* White cards */
+        --card-foreground: 25 20% 15%;
+        
+        --popover: 0 0% 100%;
+        --popover-foreground: 25 20% 15%;
+        
+        /* Primary: Forest green */
+        --primary: 140 45% 38%;
+        --primary-foreground: 0 0% 100%;
+        --primary-light: 140 40% 55%;
+        --primary-dark: 140 50% 25%;
+        
+        /* Secondary: Terracotta/Earth */
+        --secondary: 20 50% 60%;
+        --secondary-foreground: 0 0% 100%;
+        
+        /* Accent: Sage green */
+        --accent: 100 30% 65%;
+        --accent-foreground: 25 20% 15%;
+        
+        --muted: 45 15% 92%;
+        --muted-foreground: 25 15% 45%;
+        
+        --destructive: 0 72% 51%;
+        --destructive-foreground: 0 0% 100%;
+        
+        --border: 45 20% 85%;
+        --input: 45 20% 85%;
+        --ring: 140 45% 38%;
+        
+        /* Garden-specific colors */
+        --grass: 120 50% 45%;
+        --soil: 30 35% 40%;
+        --sky: 210 50% 92%;
+        --plant-light: 130 55% 60%;
+        --plant-dark: 135 60% 35%;
+        
+        /* Glassmorphism */
+        --glass-bg: 0 0% 100% / 0.7;
+        --glass-border: 0 0% 100% / 0.3;
+        --glass-shadow: 0 0% 0% / 0.1;
+        
+        /* Shadows */
+        --shadow-sm: 0 2px 8px hsl(var(--foreground) / 0.05);
+        --shadow-md: 0 4px 16px hsl(var(--foreground) / 0.08);
+        --shadow-lg: 0 8px 32px hsl(var(--foreground) / 0.12);
+        --shadow-glow: 0 0 20px hsl(var(--primary) / 0.3);
+        
+        /* Transitions */
+        --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        --transition-spring: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+        
+        --radius: 0.75rem;
+    }
+    
+    .dark {
+        --background: 25 25% 8%;
+        --foreground: 45 20% 95%;
+        
+        --card: 25 20% 12%;
+        --card-foreground: 45 20% 95%;
+        
+        --popover: 25 20% 12%;
+        --popover-foreground: 45 20% 95%;
+        
+        --primary: 140 50% 45%;
+        --primary-foreground: 0 0% 100%;
+        --primary-light: 140 45% 60%;
+        --primary-dark: 140 55% 30%;
+        
+        --secondary: 20 45% 50%;
+        --secondary-foreground: 0 0% 100%;
+        
+        --accent: 100 30% 55%;
+        --accent-foreground: 45 20% 95%;
+        
+        --muted: 25 20% 18%;
+        --muted-foreground: 45 15% 60%;
+        
+        --destructive: 0 62% 45%;
+        --destructive-foreground: 0 0% 100%;
+        
+        --border: 25 20% 20%;
+        --input: 25 20% 20%;
+        --ring: 140 50% 45%;
+        
+        --grass: 120 45% 40%;
+        --soil: 30 30% 30%;
+        --sky: 210 30% 15%;
+        --plant-light: 130 50% 55%;
+        --plant-dark: 135 55% 30%;
+        
+        --glass-bg: 25 20% 12% / 0.7;
+        --glass-border: 45 20% 95% / 0.1;
+        --glass-shadow: 0 0% 0% / 0.3;
+    }
+}
+
+@layer base {
+    * {
+        @apply border-border;
+    }
+    
+    body {
+        @apply bg-background text-foreground;
+    }
+    
+    h1, h2, h3, h4, h5, h6 {
+        font-family: 'Space Grotesk', sans-serif;
+    }
+}
+
+@layer components {
+    /* Glass panel styling */
+    .glass-panel {
+        background: hsl(var(--glass-bg));
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid hsl(var(--glass-border));
+        box-shadow: var(--shadow-md);
+    }
+    
+    /* Smooth transitions for interactive elements */
+    button, a, input, select {
+        transition: var(--transition-smooth);
+    }
+    
+    /* Canvas container */
+    .canvas-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 0;
+    }
+    
+    /* UI overlay */
+    .ui-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 10;
+        pointer-events: none;
+    }
+    
+    .ui-overlay > * {
+        pointer-events: auto;
+    }
+    
+    /* Custom scrollbar */
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+    
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: hsl(var(--muted));
+        border-radius: 4px;
+    }
+    
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: hsl(var(--primary));
+        border-radius: 4px;
+    }
+    
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: hsl(var(--primary-dark));
+    }
+}
+
+@layer utilities {
+    /* Animation utilities */
+    .animate-float {
+        animation: float 3s ease-in-out infinite;
+    }
+    
+    @keyframes float {
+        0%, 100% {
+            transform: translateY(0);
+        }
+        50% {
+            transform: translateY(-10px);
+        }
+    }
+    
+    .animate-pulse-glow {
+        animation: pulse-glow 2s ease-in-out infinite;
+    }
+    
+    @keyframes pulse-glow {
+        0%, 100% {
+            box-shadow: 0 0 10px hsl(var(--primary) / 0.3);
+        }
+        50% {
+            box-shadow: 0 0 20px hsl(var(--primary) / 0.6);
+        }
+    }
+    
+    .animate-grow {
+        animation: grow 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    
+    @keyframes grow {
+        0% {
+            transform: scale(0);
+            opacity: 0;
+        }
+        100% {
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+}
+
+@layer base {
+    [data-debug-wrapper="true"] {
+        display: contents !important;
+    }
+
+    [data-debug-wrapper="true"] > * {
+        margin-left: inherit;
+        margin-right: inherit;
+        margin-top: inherit;
+        margin-bottom: inherit;
+        padding-left: inherit;
+        padding-right: inherit;
+        padding-top: inherit;
+        padding-bottom: inherit;
+        column-gap: inherit;
+        row-gap: inherit;
+        gap: inherit;
+        border-left-width: inherit;
+        border-right-width: inherit;
+        border-top-width: inherit;
+        border-bottom-width: inherit;
+        border-left-style: inherit;
+        border-right-style: inherit;
+        border-top-style: inherit;
+        border-bottom-style: inherit;
+        border-left-color: inherit;
+        border-right-color: inherit;
+        border-top-color: inherit;
+        border-bottom-color: inherit;
+    }
+}
