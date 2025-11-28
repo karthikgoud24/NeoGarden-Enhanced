@@ -37,6 +37,40 @@ class StatusCheck(BaseModel):
 class StatusCheckCreate(BaseModel):
     client_name: str
 
+# Garden Models
+class PlantData(BaseModel):
+    id: int
+    name: str
+    icon: str
+    modelType: str
+    category: str
+    height: float
+    spread: float
+    position: dict  # {x, y, z}
+    rotation: dict  # {x, y, z}
+    color: str
+    foliageColor: str
+
+class AreaConfig(BaseModel):
+    area: float  # in square meters
+    unit: str  # 'm' or 'ft'
+
+class Garden(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    areaConfig: AreaConfig
+    landShape: list  # List of points (polygons)
+    plants: List[PlantData]
+
+class GardenCreate(BaseModel):
+    name: str
+    areaConfig: AreaConfig
+    landShape: list
+    plants: List[PlantData]
+
 # Add your routes to the router instead of directly to app
 @api_router.get("/")
 async def root():
@@ -65,6 +99,55 @@ async def get_status_checks():
             check['timestamp'] = datetime.fromisoformat(check['timestamp'])
     
     return status_checks
+
+# Garden Endpoints
+@api_router.post("/gardens", response_model=Garden)
+async def create_garden(garden: GardenCreate):
+    """Save a garden design"""
+    garden_obj = Garden(**garden.model_dump())
+    
+    doc = garden_obj.model_dump()
+    doc['timestamp'] = doc['timestamp'].isoformat()
+    doc['areaConfig'] = garden.areaConfig.model_dump()
+    
+    result = await db.gardens.insert_one(doc)
+    garden_obj.id = str(result.inserted_id) if hasattr(result, 'inserted_id') else garden_obj.id
+    
+    return garden_obj
+
+@api_router.get("/gardens", response_model=List[Garden])
+async def get_gardens():
+    """Get all saved gardens"""
+    gardens = await db.gardens.find({}, {"_id": 0}).to_list(1000)
+    
+    for garden in gardens:
+        if isinstance(garden.get('timestamp'), str):
+            garden['timestamp'] = datetime.fromisoformat(garden['timestamp'])
+    
+    return gardens
+
+@api_router.get("/gardens/{garden_id}", response_model=Garden)
+async def get_garden(garden_id: str):
+    """Get a specific garden by ID"""
+    garden = await db.gardens.find_one({"id": garden_id}, {"_id": 0})
+    
+    if not garden:
+        return {"error": "Garden not found"}
+    
+    if isinstance(garden.get('timestamp'), str):
+        garden['timestamp'] = datetime.fromisoformat(garden['timestamp'])
+    
+    return garden
+
+@api_router.delete("/gardens/{garden_id}")
+async def delete_garden(garden_id: str):
+    """Delete a garden"""
+    result = await db.gardens.delete_one({"id": garden_id})
+    
+    if result.deleted_count == 0:
+        return {"error": "Garden not found"}
+    
+    return {"message": "Garden deleted successfully"}
 
 # Include the router in the main app
 app.include_router(api_router)

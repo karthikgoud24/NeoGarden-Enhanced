@@ -1,61 +1,227 @@
-import React from 'react';
-import { Card } from './ui/card';
+import React, { useState, useMemo } from 'react';
+import { Search, Leaf, RotateCw } from 'lucide-react';
 import { Button } from './ui/button';
-import { ScrollArea } from './ui/scroll-area';
-import { Badge } from './ui/badge';
-import { Leaf, TreeDeciduous, Flower, Sprout } from 'lucide-react';
+import { Input } from './ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { Card } from './ui/card';
+import { plants, plantCategories, getCategoriesWithCount, searchPlants } from '@/lib/plantLibrary';
+import './PlantLibrary.css';
 
-const plantTypes = [
-  { id: 'tree-oak', name: 'Oak Tree', type: 'tree', size: 15, spaceRequired: 200, color: '#2d5016', icon: TreeDeciduous, description: 'Large shade tree', height: 4 },
-  { id: 'tree-maple', name: 'Maple Tree', type: 'tree', size: 12, spaceRequired: 150, color: '#3d6e1f', icon: TreeDeciduous, description: 'Beautiful autumn colors', height: 3.5 },
-  { id: 'shrub-rose', name: 'Rose Bush', type: 'shrub', size: 3, spaceRequired: 9, color: '#c44569', icon: Flower, description: 'Ultra-realistic procedural rose bush', height: 1.6 },
-  { id: 'shrub-hydrangea', name: 'Hydrangea', type: 'shrub', size: 4, spaceRequired: 16, color: '#5f84d1', icon: Flower, description: 'Large colorful blooms', height: 1.5 },
-  { id: 'flower-tulip', name: 'Tulips', type: 'flower', size: 1, spaceRequired: 1, color: '#ff6b9d', icon: Flower, description: 'Spring bloomers', height: 0.5 },
-  { id: 'flower-sunflower', name: 'Sunflower', type: 'flower', size: 2, spaceRequired: 4, color: '#ffa502', icon: Flower, description: 'Tall and cheerful', height: 2 },
-  { id: 'grass-ornamental', name: 'Ornamental Grass', type: 'grass', size: 2, spaceRequired: 4, color: '#8fbc8f', icon: Sprout, description: 'Adds texture', height: 0.8 },
-  { id: 'shrub-boxwood', name: 'Boxwood', type: 'shrub', size: 2, spaceRequired: 4, color: '#556b2f', icon: Leaf, description: 'Perfect for hedges', height: 1.0 }
-];
-
-export const PlantLibrary = ({ selectedPlant, onSelectPlant, placingMode }) => {
+const PlantCard = ({ plant, isSelected, onSelect, isReplaceMode }) => {
+  const isIndian = plant.category === plantCategories.INDIAN_TREES;
+  
   return (
-    <Card className="fixed left-4 top-1/2 -translate-y-1/2 w-72 glass-panel">
-      <div className="p-4 border-b border-border">
-        <h2 className="text-xl font-bold text-foreground flex items-center gap-2"><Leaf className="w-5 h-5 text-primary" />Plant Library</h2>
-        {placingMode && <Badge className="mt-2 bg-primary/20 text-primary border-primary/30">Placing Mode Active</Badge>}
+    <Card
+      onClick={() => onSelect(plant)}
+      className={`plant-card ${isSelected ? 'selected' : ''} ${isIndian ? 'indian-badge' : ''} ${isReplaceMode ? 'replace-mode' : ''}`}
+    >
+      <div className="plant-card-icon">{plant.icon}</div>
+      <div className="plant-card-content">
+        <h4 className="plant-name">{plant.name}</h4>
+        {isIndian && <span className="badge-indian">🇮🇳 Indian</span>}
+        <p className="plant-sci">{plant.scientificName}</p>
+        <div className="plant-meta">
+          <span className="meta-item">
+            <span className="meta-label">Height:</span>
+            {plant.height.min}-{plant.height.max}m
+          </span>
+          <span className="meta-item">
+            <span className="meta-label">Spread:</span>
+            {plant.spread}m
+          </span>
+        </div>
+        <div className="plant-tags">
+          {plant.waterNeeds && (
+            <span className="tag water">{plant.waterNeeds === 'high' ? '💧' : plant.waterNeeds === 'medium' ? '🌧️' : '☀️'}</span>
+          )}
+          {plant.sunlight && (
+            <span className="tag sun">{plant.sunlight === 'full' ? '☀️' : '🌤️'}</span>
+          )}
+          {plant.season && plant.season[0] && (
+            <span className="tag season">{plant.season[0]}</span>
+          )}
+        </div>
+        <p className="plant-desc">{plant.description}</p>
+      </div>
+    </Card>
+  );
+};
+
+const CategoryTab = ({ category, count, icon }) => (
+  <div className="category-tab">
+    <span className="tab-icon">{icon}</span>
+    <span className="tab-label">{category.replace(/_/g, ' ')}</span>
+    <span className="tab-count">{count}</span>
+  </div>
+);
+
+export const PlantLibrary = ({
+  selectedPlant,
+  onSelectPlant,
+  placingMode,
+  editingPlantId
+}) => {
+  const [activeCategory, setActiveCategory] = useState(plantCategories.INDIAN_TREES);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState('name');
+
+  const isReplaceMode = !!editingPlantId && placingMode;
+
+  // Get plants for current category
+  const categoryPlants = useMemo(() => {
+    if (searchQuery.trim()) {
+      return searchPlants(searchQuery);
+    }
+    return plants[activeCategory] || [];
+  }, [activeCategory, searchQuery]);
+
+  // Sort plants
+  const sortedPlants = useMemo(() => {
+    let sorted = [...categoryPlants];
+    switch (sortBy) {
+      case 'height':
+        sorted.sort((a, b) => b.height.max - a.height.max);
+        break;
+      case 'spread':
+        sorted.sort((a, b) => b.spread - a.spread);
+        break;
+      case 'name':
+      default:
+        sorted.sort((a, b) => a.name.localeCompare(b.name));
+    }
+    return sorted;
+  }, [categoryPlants, sortBy]);
+
+  const categories = getCategoriesWithCount();
+
+  const categoryIcons = {
+    [plantCategories.INDIAN_TREES]: '🇮🇳',
+    [plantCategories.TREES]: '🌲',
+    [plantCategories.SHRUBS]: '🌳',
+    [plantCategories.FLOWERS]: '🌺',
+    [plantCategories.FRUITS]: '🍎',
+    [plantCategories.ORNAMENTAL]: '🌸',
+    [plantCategories.HERBS]: '🌿',
+  };
+
+  return (
+    <div className="plant-library">
+      <div className="library-header">
+        <h3 className="library-title">
+          {isReplaceMode ? (
+            <span className="flex items-center gap-2">
+              <RotateCw className="w-5 h-5 text-amber-500" />
+              Replace Plant
+            </span>
+          ) : (
+            'Plant Library'
+          )}
+        </h3>
+        <p className="library-subtitle">
+          {isReplaceMode 
+            ? '👉 Select a new plant to replace' 
+            : placingMode 
+            ? '👇 Select and click on scene to place' 
+            : 'Browse and select plants'}
+        </p>
       </div>
 
-      <ScrollArea className="h-[calc(100vh-250px)] custom-scrollbar">
-        <div className="p-4 space-y-3">
-          {plantTypes.map((plant) => {
-            const Icon = plant.icon;
-            const isSelected = selectedPlant?.id === plant.id;
-            return (
-              <Button key={plant.id} onClick={() => onSelectPlant && onSelectPlant(plant)} variant={isSelected ? "default" : "outline"} className={`w-full justify-start h-auto p-4 transition-all overflow-hidden ${isSelected ? 'bg-primary text-primary-foreground border-primary shadow-lg scale-105' : 'hover:bg-accent hover:scale-102'}`}>
-                <div className="flex items-start gap-3 w-full">
-                  <div className="p-2 rounded-lg flex-shrink-0" style={{ backgroundColor: isSelected ? 'rgba(255,255,255,0.12)' : plant.color + '20', color: isSelected ? 'white' : plant.color }}>
-                    <Icon className="w-5 h-5" />
-                  </div>
-                  <div className="flex-1 text-left">
-                    <div className="font-semibold text-sm mb-1">{plant.name}</div>
-                    <div className={`text-xs mb-1 ${isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>{plant.description}</div>
-                    <div className="flex gap-2 flex-wrap">
-                      <Badge variant="secondary" className="text-xs">{plant.spaceRequired} sq ft</Badge>
-                      <Badge variant="secondary" className="text-xs">{plant.height}m tall</Badge>
-                    </div>
-                  </div>
-                </div>
-              </Button>
-            );
-          })}
+      {/* Search Bar */}
+      <div className="search-section">
+        <Search className="search-icon" size={16} />
+        <Input
+          placeholder="Search plants..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="search-input"
+        />
+      </div>
+
+      {/* Category Tabs */}
+      <Tabs value={activeCategory} onValueChange={setActiveCategory} className="library-tabs">
+        <TabsList className="tabs-list">
+          {categories.map((cat) => (
+            <TabsTrigger key={cat.value} value={cat.value} className="tabs-trigger">
+              <CategoryTab
+                category={cat.name}
+                count={cat.count}
+                icon={categoryIcons[cat.value] || '🌱'}
+              />
+            </TabsTrigger>
+          ))}
+        </TabsList>
+
+        {/* Sort Controls */}
+        <div className="sort-controls">
+          <span className="sort-label">Sort by:</span>
+          <button
+            onClick={() => setSortBy('name')}
+            className={`sort-btn ${sortBy === 'name' ? 'active' : ''}`}
+          >
+            Name
+          </button>
+          <button
+            onClick={() => setSortBy('height')}
+            className={`sort-btn ${sortBy === 'height' ? 'active' : ''}`}
+          >
+            Height
+          </button>
+          <button
+            onClick={() => setSortBy('spread')}
+            className={`sort-btn ${sortBy === 'spread' ? 'active' : ''}`}
+          >
+            Spread
+          </button>
         </div>
-      </ScrollArea>
+
+        {/* Plants Grid */}
+        {sortedPlants.length > 0 ? (
+          <div className="plants-grid">
+            {sortedPlants.map((plant) => (
+              <PlantCard
+                key={plant.id}
+                plant={plant}
+                isSelected={selectedPlant?.id === plant.id}
+                onSelect={onSelectPlant}
+                isReplaceMode={isReplaceMode}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="no-plants">
+            <Leaf className="no-plants-icon" size={32} />
+            <p>No plants found</p>
+          </div>
+        )}
+      </Tabs>
 
       {selectedPlant && (
-        <div className="p-4 border-t border-border bg-muted/30">
-          <p className="text-xs text-muted-foreground">Click anywhere on the garden to place {selectedPlant.name}</p>
+        <div className="selected-info">
+          <div className="selected-inner">
+            <span className="selected-icon">{selectedPlant.icon}</span>
+            <div className="selected-text">
+              <strong>{selectedPlant.name}</strong>
+              <small>{selectedPlant.description}</small>
+            </div>
+            {!isReplaceMode && (
+              <Button
+                onClick={() => onSelectPlant(null)}
+                variant="outline"
+                size="sm"
+                className="deselect-btn"
+              >
+                Clear
+              </Button>
+            )}
+          </div>
+          {isReplaceMode && (
+            <div className="text-xs text-muted-foreground mt-2 px-4 py-2 bg-amber-500/10 rounded">
+              ✓ Ready to replace. {selectedPlant.name} will replace the selected plant.
+            </div>
+          )}
         </div>
       )}
-    </Card>
+    </div>
   );
 };
 

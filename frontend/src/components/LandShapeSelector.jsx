@@ -1,13 +1,55 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { toast } from 'sonner';
-import { Undo, Check, FileUp } from 'lucide-react';
+import { Undo, Check, FileUp, Ruler } from 'lucide-react';
 
-export const LandShapeSelector = ({ onComplete, onLoad }) => {
+export const LandShapeSelector = ({ onComplete, onLoad, areaConfig }) => {
   const [points, setPoints] = useState([]);
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
+
+  // Scale factor based on garden area - MUST be defined before useMemo
+  const getScaleFactor = () => {
+    if (!areaConfig) return 1;
+    // Base scale: ~50 pixels per 10 sqm
+    return Math.sqrt(areaConfig.areaSqm) / 10;
+  };
+
+  // Calculate area and perimeter of the drawn shape
+  const shapeMetrics = useMemo(() => {
+    if (points.length < 3) return null;
+    
+    // Calculate area using Shoelace formula
+    let area = 0;
+    for (let i = 0; i < points.length; i++) {
+      const j = (i + 1) % points.length;
+      area += points[i].x * points[j].y;
+      area -= points[j].x * points[i].y;
+    }
+    area = Math.abs(area) / 2;
+    
+    // Calculate perimeter
+    let perimeter = 0;
+    for (let i = 0; i < points.length; i++) {
+      const j = (i + 1) % points.length;
+      const dx = points[j].x - points[i].x;
+      const dy = points[j].y - points[i].y;
+      perimeter += Math.sqrt(dx * dx + dy * dy);
+    }
+    
+    // Calculate grid spacing (from canvas grid size)
+    const gridPixelSize = 50;
+    const scaleFactor = areaConfig ? Math.sqrt(areaConfig.areaSqm) / getScaleFactor() : 1;
+    const metersPerPixel = scaleFactor / gridPixelSize * 10;
+    
+    return {
+      pixelArea: area,
+      pixelPerimeter: perimeter,
+      actualArea: area * (metersPerPixel ** 2),
+      actualPerimeter: perimeter * metersPerPixel
+    };
+  }, [points, areaConfig]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -114,21 +156,8 @@ export const LandShapeSelector = ({ onComplete, onLoad }) => {
       return;
     }
 
-    // Calculate area using Shoelace formula
-    let area = 0;
-    for (let i = 0; i < points.length; i++) {
-      const j = (i + 1) % points.length;
-      area += points[i].x * points[j].y;
-      area -= points[j].x * points[i].y;
-    }
-    area = Math.abs(area / 2);
-
-    // Convert pixels to approximate square feet (rough estimation)
-    const pixelsPerFoot = 10; // 10 pixels = 1 foot
-    const sqFeet = (area / (pixelsPerFoot * pixelsPerFoot)).toFixed(0);
-
-    toast.success(`Land shape created! Approximately ${sqFeet} square feet`);
-    onComplete(points);
+    toast.success(`Land shape created! Ready to plant.`);
+    onComplete(points, areaConfig);
   };
 
   return (
@@ -136,13 +165,16 @@ export const LandShapeSelector = ({ onComplete, onLoad }) => {
       <Card className="glass-panel w-full max-w-5xl p-8">
         <div className="mb-6">
           <h1 className="text-4xl font-bold text-foreground mb-2">Design Your Garden</h1>
-          <p className="text-muted-foreground text-lg">Click on the canvas to define your land shape. Click near the first point to complete the shape.</p>
+          <p className="text-muted-foreground text-lg">
+            Click on the canvas to define your land shape. 
+            {areaConfig && <span> Garden area: {areaConfig.area} {areaConfig.unit}</span>}
+          </p>
         </div>
 
         <div 
           ref={containerRef}
           className="relative bg-background rounded-lg border-2 border-border mb-6 overflow-hidden"
-          style={{ height: 'calc(100vh - 280px)' }}
+          style={{ height: 'calc(100vh - 320px)' }}
         >
           <canvas
             ref={canvasRef}
@@ -151,14 +183,35 @@ export const LandShapeSelector = ({ onComplete, onLoad }) => {
           />
           
           {points.length > 0 && (
-            <div className="absolute top-4 right-4 glass-panel px-4 py-2 rounded-lg">
-              <p className="text-sm font-medium text-foreground">
-                Points: {points.length}
-                {points.length >= 3 && (
-                  <span className="ml-2 text-primary">• Click first point to close</span>
+            <>
+              <div className="absolute top-4 right-4 glass-panel px-4 py-3 rounded-lg space-y-2">
+                <p className="text-sm font-medium text-foreground">
+                  Points: {points.length}
+                  {points.length >= 3 && (
+                    <span className="ml-2 text-primary text-xs">• Click first point to close</span>
+                  )}
+                </p>
+                
+                {shapeMetrics && (
+                  <div className="pt-2 border-t border-border space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Ruler className="w-3 h-3 text-primary" />
+                      <span className="text-xs text-muted-foreground">
+                        Perimeter: ~{shapeMetrics.actualPerimeter.toFixed(1)}m
+                      </span>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Area: ~{shapeMetrics.actualArea.toFixed(1)} sqm
+                    </div>
+                    {areaConfig && (
+                      <div className="text-xs text-primary font-medium">
+                        Target: {areaConfig.areaSqm.toFixed(1)} sqm
+                      </div>
+                    )}
+                  </div>
                 )}
-              </p>
-            </div>
+              </div>
+            </>
           )}
         </div>
 

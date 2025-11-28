@@ -3,6 +3,7 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { Html } from "@react-three/drei";
 import { Trash2 } from "lucide-react";
+import PlantContextMenu from "../PlantContextMenu";
 
 /* --------------------------------------------------------------------------
    Helper geometry builders and shader strings (kept local to this file)
@@ -334,10 +335,10 @@ function ProceduralRose({
 
       {/* falling petals & pollen */}
       <points ref={petalsRef} geometry={petalParticles}>
-        <pointsMaterial size={0.018 * size} transparent opacity={0.95} color={"#ffc0d9"} depthWrite={false} />
+        <pointsMaterial size={0.018 * size} transparent opacity={0.95} color={new THREE.Color(color).multiplyScalar(1.06)} depthWrite={false} />
       </points>
       <points ref={pollenRef} geometry={pollenPoints}>
-        <pointsMaterial size={0.012 * size} transparent opacity={0.9} color={"#ffec9a"} depthWrite={false} />
+        <pointsMaterial size={0.012 * size} transparent opacity={0.9} color={new THREE.Color(color).multiplyScalar(0.9)} depthWrite={false} />
       </points>
     </group>
   );
@@ -349,7 +350,374 @@ function ProceduralRose({
    - Keeps other types as nicer procedural shapes (trees, flowers, grass)
    -------------------------------------------------------------------------- */
 
-export const Plant3D = ({ plant, onMove, onRemove }) => {
+/**
+ * Realistic 3D tree generator for GTA-5-like quality with advanced canopy
+ */
+function RealisticTree({ height = 3, spread = 2, trunkRadius = 0.12, color = '#2d5016', foliageColor = '#4a7c2e', modelType = 'tree-large', realism = {} }) {
+  // Bark material - high quality with variations
+  const trunkMaterial = new THREE.MeshStandardMaterial({
+    color: '#3a2f24',
+    roughness: 0.95,
+    metalness: 0.05,
+    map: undefined,
+  });
+
+  // Foliage material - two-tone for depth
+  const foliageMaterial = new THREE.MeshStandardMaterial({
+    color: foliageColor,
+    roughness: 0.65,
+    metalness: 0.0,
+    flatShading: false,
+    side: THREE.DoubleSide,
+  });
+
+  const darkFoliageMaterial = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(foliageColor).multiplyScalar(0.75),
+    roughness: 0.7,
+    metalness: 0.0,
+    side: THREE.DoubleSide,
+  });
+
+  // Trunk with realistic taper and segments
+  const trunkGeometry = new THREE.ConeGeometry(trunkRadius * 1.5, height * 0.4, 16);
+  const trunk = <mesh geometry={trunkGeometry} material={trunkMaterial} castShadow receiveShadow position={[0, height * 0.2, 0]} />;
+
+  // Add trunk roots for larger trees
+  const roots = [];
+  if (modelType === 'tree-xlarge' || modelType === 'tree-large') {
+    for (let r = 0; r < 3; r++) {
+      const angle = (r / 3) * Math.PI * 2;
+      const x = Math.cos(angle) * trunkRadius * 0.8;
+      const z = Math.sin(angle) * trunkRadius * 0.8;
+      roots.push(
+        <mesh key={`root-${r}`} position={[x, -0.1, z]} castShadow>
+          <coneGeometry args={[trunkRadius * 0.4, height * 0.15, 8]} />
+          <meshStandardMaterial color="#2a1f14" roughness={0.9} />
+        </mesh>
+      );
+    }
+  }
+
+  // Multi-layered dense foliage using overlapping spheres for GTA-5-like canopy
+  const foliageElements = [];
+  // Map realism hints to numeric multipliers
+  const sizeMap = { tiny: 0.6, small: 0.85, medium: 1.0, large: 1.25, xlarge: 1.6 };
+  const densityMap = { low: 0.6, medium: 1.0, high: 1.45, 'very-high': 1.9 };
+  const leafSizeMul = sizeMap[realism.leafSize] || 1.0;
+  const densityMul = densityMap[realism.leafDensity] || 1.0;
+
+  let baseFoliageCount = modelType === 'tree-xlarge' ? 16 : modelType === 'tree-large' ? 12 : modelType === 'tree-medium' ? 8 : 5;
+  const foliageCount = Math.max(4, Math.round(baseFoliageCount * densityMul));
+  const foliageRadius = spread * 0.3 * leafSizeMul;
+
+  // If this is a conifer, render layered cones instead of spherical canopy
+  if (modelType === 'tree-conifer') {
+    const cones = [];
+    const levels = Math.max(3, Math.round(3 + 2 * densityMul));
+    for (let L = 0; L < levels; L++) {
+      const t = L / Math.max(1, levels - 1);
+      const coneRadius = foliageRadius * (1 - t * 0.6);
+      const coneHeight = height * (0.25 + t * 0.35);
+      const y = height * (0.45 + t * 0.18);
+      cones.push(
+        <mesh key={`conifer-${L}`} position={[0, y, 0]} castShadow receiveShadow>
+          <coneGeometry args={[coneRadius, coneHeight, 20]} />
+          <meshStandardMaterial {...foliageMaterial} />
+        </mesh>
+      );
+    }
+
+    // Add a grounding shadow and return conifer group
+    cones.push(
+      <mesh key="conifer-shadow" position={[0, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <ringGeometry args={[0, spread * 0.28, 32]} />
+        <meshStandardMaterial color="#000000" transparent opacity={0.12} emissive="#000000" emissiveIntensity={0.18} />
+      </mesh>
+    );
+
+    return (
+      <group>
+        {trunk}
+        {roots}
+        {cones}
+      </group>
+    );
+  }
+
+  // Layer 1: Bottom foliage (darker)
+  for (let i = 0; i < foliageCount; i++) {
+    const angle = (i / foliageCount) * Math.PI * 2;
+    const radialDist = foliageRadius * (0.7 + Math.random() * 0.5);
+    const x = Math.cos(angle) * radialDist;
+    const z = Math.sin(angle) * radialDist;
+    const y = height * (0.45 + Math.random() * 0.15);
+    const scale = 0.7 + Math.random() * 0.6;
+
+    foliageElements.push(
+      <mesh key={`foliage-bottom-${i}`} position={[x, y, z]} castShadow receiveShadow scale={scale}>
+        <sphereGeometry args={[spread * 0.25, 18, 18]} />
+        <meshStandardMaterial {...darkFoliageMaterial} />
+      </mesh>
+    );
+  }
+
+  // Layer 2: Middle foliage (standard)
+  for (let i = 0; i < Math.ceil(foliageCount * 0.8); i++) {
+    const angle = (i / foliageCount) * Math.PI * 2 + 0.3;
+    const radialDist = foliageRadius * (0.5 + Math.random() * 0.6);
+    const x = Math.cos(angle) * radialDist;
+    const z = Math.sin(angle) * radialDist;
+    const y = height * (0.55 + Math.random() * 0.2);
+    const scale = (0.8 + Math.random() * 0.5) * (0.95 + (leafSizeMul - 1) * 0.5);
+
+    foliageElements.push(
+      <mesh key={`foliage-mid-${i}`} position={[x, y, z]} castShadow receiveShadow scale={scale}>
+        <sphereGeometry args={[spread * 0.3, 18, 18]} />
+        <meshStandardMaterial {...foliageMaterial} />
+      </mesh>
+    );
+  }
+
+  // Layer 3: Top canopy (bright, multiple spheres for density)
+  for (let i = 0; i < 3; i++) {
+    const offsetX = (Math.random() - 0.5) * spread * 0.2;
+    const offsetZ = (Math.random() - 0.5) * spread * 0.2;
+    const topScale = (0.8 + Math.random() * 0.4) * (0.95 + (leafSizeMul - 1) * 0.45);
+
+    foliageElements.push(
+      <mesh
+        key={`foliage-top-${i}`}
+        position={[offsetX, height * (0.68 + i * 0.08), offsetZ]}
+        castShadow
+        receiveShadow
+        scale={topScale}
+      >
+        <sphereGeometry args={[spread * 0.35 * leafSizeMul, 20, 20]} />
+        <meshStandardMaterial {...foliageMaterial} />
+      </mesh>
+    );
+  }
+
+  // Add some ambient occlusion shadow under canopy
+  foliageElements.push(
+    <mesh key="shadow-ring" position={[0, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+      <ringGeometry args={[0, spread * 0.4, 32]} />
+      <meshStandardMaterial
+        color="#000000"
+        transparent
+        opacity={0.15}
+        emissive="#000000"
+        emissiveIntensity={0.2}
+      />
+    </mesh>
+  );
+
+  return (
+    <group>
+      {trunk}
+      {roots}
+      {foliageElements}
+    </group>
+  );
+}
+
+/**
+ * Palm tree for tropical plants - GTA-5 quality with realistic fronds
+ */
+function PalmTree({ height = 6, color = '#8b7355', foliageColor = '#2d5016' }) {
+  // Enhanced trunk material with texture detail
+  const trunkMaterial = new THREE.MeshStandardMaterial({
+    color: '#8b6f47',
+    roughness: 0.95,
+    metalness: 0.01,
+    normalScale: new THREE.Vector2(1, 1),
+  });
+
+  // Advanced frond material with better light interaction
+  const frondMaterial = new THREE.MeshStandardMaterial({
+    color: foliageColor,
+    roughness: 0.55,
+    metalness: 0.05,
+    flatShading: false,
+    side: THREE.DoubleSide,
+    emissive: new THREE.Color(foliageColor).multiplyScalar(0.15),
+  });
+
+  // Segmented trunk with taper for realistic tapering effect
+  const trunkSegments = [];
+  for (let i = 0; i < 8; i++) {
+    const segmentHeight = (height * 0.8) / 8;
+    const radiusTop = 0.14 - (i / 8) * 0.06;
+    const radiusBottom = 0.14 - ((i + 1) / 8) * 0.06;
+    
+    trunkSegments.push(
+      <mesh
+        key={`trunk-seg-${i}`}
+        position={[0, height * 0.375 - segmentHeight * i, 0]}
+        castShadow
+        receiveShadow
+      >
+        <cylinderGeometry args={[radiusTop, radiusBottom, segmentHeight, 20]} />
+        <meshStandardMaterial {...trunkMaterial} />
+      </mesh>
+    );
+  }
+
+  // Trunk base for stability and realism
+  const trunkBase = (
+    <mesh position={[0, -0.05, 0]} castShadow receiveShadow>
+      <cylinderGeometry args={[0.18, 0.22, 0.15, 24]} />
+      <meshStandardMaterial
+        color="#6a4c32"
+        roughness={0.92}
+        metalness={0.01}
+      />
+    </mesh>
+  );
+
+  // Enhanced fronds with more realistic shape and animation capability
+  const fronds = [];
+  const frondCount = 18; // More fronds for density
+  
+  for (let i = 0; i < frondCount; i++) {
+    const angle = (i / frondCount) * Math.PI * 2;
+    const tilt = Math.PI * 0.38 + Math.sin(i * 0.5) * 0.12;
+    const curve = Math.sin((i / frondCount) * Math.PI) * 0.25;
+    const frondRotation = Math.random() * 0.3 - 0.15;
+
+    // Main frond blade - larger and better proportioned
+    fronds.push(
+      <mesh
+        key={`frond-main-${i}`}
+        position={[0, height * 0.72, 0]}
+        rotation={[tilt, angle, curve]}
+        castShadow
+        receiveShadow
+      >
+        <planeGeometry args={[0.22, 1.4]} />
+        <meshStandardMaterial
+          {...frondMaterial}
+          color={new THREE.Color(foliageColor)}
+        />
+      </mesh>
+    );
+
+    // Secondary frond for more complexity
+    fronds.push(
+      <mesh
+        key={`frond-secondary-${i}`}
+        position={[0, height * 0.7, 0]}
+        rotation={[tilt + 0.15, angle + 0.3, curve - 0.1]}
+        castShadow
+      >
+        <planeGeometry args={[0.18, 1.1]} />
+        <meshStandardMaterial
+          color={new THREE.Color(foliageColor).multiplyScalar(0.88)}
+          roughness={0.58}
+          side={THREE.DoubleSide}
+          emissive={new THREE.Color(foliageColor).multiplyScalar(0.1)}
+        />
+      </mesh>
+    );
+  }
+
+  // Inner layer fronds for extra density
+  for (let i = 0; i < 10; i++) {
+    const angle = (i / 10) * Math.PI * 2 + 0.5;
+    const tilt = Math.PI * 0.42;
+    fronds.push(
+      <mesh
+        key={`frond-inner-${i}`}
+        position={[0, height * 0.68, 0]}
+        rotation={[tilt, angle, 0.15]}
+        castShadow
+      >
+        <planeGeometry args={[0.16, 0.95]} />
+        <meshStandardMaterial
+          color={new THREE.Color(foliageColor).multiplyScalar(0.82)}
+          roughness={0.6}
+          side={THREE.DoubleSide}
+          emissive={new THREE.Color(foliageColor).multiplyScalar(0.08)}
+        />
+      </mesh>
+    );
+  }
+
+  // Frond crown (top layer) for fuller appearance
+  fronds.push(
+    <mesh
+      key="frond-crown"
+      position={[0, height * 0.82, 0]}
+      castShadow
+      receiveShadow
+    >
+      <sphereGeometry args={[0.32, 10, 10]} />
+      <meshStandardMaterial
+        color={foliageColor}
+        roughness={0.52}
+        emissive={new THREE.Color(foliageColor).multiplyScalar(0.12)}
+      />
+    </mesh>
+  );
+
+  // Add coconut clusters on trunk for realism
+  const coconutClusters = [];
+  for (let c = 0; c < 3; c++) {
+    const clusterHeight = height * (0.55 - c * 0.15);
+    const clusterAngle = (c / 3) * Math.PI * 2;
+    
+    for (let i = 0; i < 3; i++) {
+      const angle = clusterAngle + (i - 1) * 0.3;
+      const radius = 0.15;
+      const x = Math.cos(angle) * radius;
+      const z = Math.sin(angle) * radius;
+      
+      coconutClusters.push(
+        <mesh
+          key={`coconut-${c}-${i}`}
+          position={[x, clusterHeight, z]}
+          castShadow
+          receiveShadow
+        >
+          <sphereGeometry args={[0.1, 12, 12]} />
+          <meshStandardMaterial
+            color="#d4a574"
+            roughness={0.75}
+            metalness={0.02}
+            emissive="#8b6f47"
+            emissiveIntensity={0.1}
+          />
+        </mesh>
+      );
+    }
+  }
+
+  // Shadow ring for grounding effect
+  const shadowRing = (
+    <mesh position={[0, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+      <ringGeometry args={[0, 0.6, 32]} />
+      <meshStandardMaterial
+        color="#000000"
+        transparent
+        opacity={0.15}
+        emissive="#000000"
+        emissiveIntensity={0.18}
+      />
+    </mesh>
+  );
+
+  return (
+    <group>
+      {trunkBase}
+      {trunkSegments}
+      {fronds}
+      {coconutClusters}
+      {shadowRing}
+    </group>
+  );
+}
+
+export const Plant3D = ({ plant, onMove, onRemove, onReplace, onReposition }) => {
   const groupRef = useRef();
   const [hovered, setHovered] = useState(false);
   const [growing, setGrowing] = useState(true);
@@ -368,24 +736,41 @@ export const Plant3D = ({ plant, onMove, onRemove }) => {
   });
 
   const pos = plant.position || [0, 0, 0];
+  // Extract height from plant data - handle both min/max range and scalar values
+  // Apply height scale factor to normalize based on garden size
+  const baseHeight = (plant.height?.max || plant.height) ?? 2;
+  const heightScale = plant.heightScale ?? 1;
+  const height = baseHeight * heightScale; // Direct scale, no additional multiplier
+  const spread = (plant.spread ?? (plant.width?.max || 2)) * heightScale;
+  const color = plant.color || '#2d5016';
+  const foliageColor = plant.foliageColor || '#4a7c2e';
+  const modelType = plant.modelType || 'tree-large';
+  const category = plant.category || '';
 
-  // Procedural shrub detection: all type === 'shrub' will be procedural rose bush
-  if (plant.type === "shrub") {
+  // Determine render type based on modelType and category
+  const isTree = modelType?.includes('tree');
+  const isShrub = modelType?.includes('shrub') || category?.includes('shrub');
+  const isFlower = modelType?.includes('flower') || category?.includes('flower');
+  const isPalm = modelType === 'tree-palm';
+
+  // Render shrub with procedural rose
+  if (isShrub) {
     return (
       <group ref={groupRef} position={pos} rotation={[0, plant.rotation || 0, 0]}>
-        <ProceduralRose size={plant.size ?? 1} color={plant.color || "#c44569"} height={plant.height ?? 1.6} />
+        <ProceduralRose size={plant.size ?? 1} color={plant.flowerColor || color} leafColor={foliageColor} height={height} />
         {hovered && (
           <>
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
-              <ringGeometry args={[ (plant.size ?? 1) * 0.18, (plant.size ?? 1) * 0.24, 48 ]} />
+              <ringGeometry args={[(spread * 0.5) * 0.18, (spread * 0.5) * 0.24, 48]} />
               <meshBasicMaterial color="#4ade80" transparent opacity={0.7} side={THREE.DoubleSide} />
             </mesh>
-            <Html distanceFactor={10} position={[0, (plant.height ?? 1.2) + 0.45, 0]}>
-              <button onClick={(e) => { e.stopPropagation(); onRemove && onRemove(plant.id); }}
-                className="glass-panel p-2 rounded-lg hover:bg-destructive hover:text-destructive-foreground transition-colors cursor-pointer"
-                style={{ pointerEvents: "auto" }}>
-                <Trash2 className="w-4 h-4" />
-              </button>
+            <Html distanceFactor={10} position={[0, height + 0.45, 0]}>
+              <PlantContextMenu
+                plant={plant}
+                onRemove={onRemove}
+                onReplace={onReplace}
+                onReposition={onReposition}
+              />
             </Html>
           </>
         )}
@@ -394,69 +779,192 @@ export const Plant3D = ({ plant, onMove, onRemove }) => {
     );
   }
 
-  // NON-shrub items: render improved procedural shapes with subtle animations
-  const color = new THREE.Color(plant.color || "#77aa66");
+  // Render realistic trees
+  if (isTree) {
+    const isPalm = modelType === 'tree-palm';
+    return (
+      <group ref={groupRef} position={pos} rotation={[0, plant.rotation || 0, 0]}>
+        {isPalm ? (
+          <PalmTree height={height} color={color} foliageColor={foliageColor} />
+        ) : (
+          <RealisticTree height={height} spread={spread} color={color} foliageColor={foliageColor} modelType={modelType} realism={plant.realism || {}} />
+        )}
+        {hovered && (
+          <>
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
+              <ringGeometry args={[(spread * 0.5) * 0.18, (spread * 0.5) * 0.22, 48]} />
+              <meshBasicMaterial color="#4ade80" transparent opacity={0.65} side={THREE.DoubleSide} />
+            </mesh>
+            <Html distanceFactor={10} position={[0, height + 0.45, 0]}>
+              <PlantContextMenu
+                plant={plant}
+                onRemove={onRemove}
+                onReplace={onReplace}
+                onReposition={onReposition}
+              />
+            </Html>
+          </>
+        )}
+        <group onPointerEnter={() => setHovered(true)} onPointerLeave={() => setHovered(false)} />
+      </group>
+    );
+  }
+
+  // Render flowers with realistic petals
+  if (isFlower) {
+    const stemColor = foliageColor || '#3f7a3b';
+    const petalColor = plant.flowerColor || color;
+    // species-specific petal counts for more realistic shapes
+    let petalCount = Math.ceil((spread * 10) % 8) + 5; // default 5-12 based on spread
+    if (plant.id === 'sunflower' || plant.modelType === 'flower-tall') petalCount = 20;
+    if (plant.id === 'rose') petalCount = 14;
+    if (plant.id === 'hibiscus') petalCount = 6;
+    const outerPetalSize = plant.id === 'sunflower' ? spread * 0.28 : spread * 0.2;
+    const innerPetalSize = plant.id === 'sunflower' ? spread * 0.12 : spread * 0.15;
+    
+    return (
+      <group ref={groupRef} position={pos} rotation={[0, plant.rotation || 0, 0]}>
+        {/* Main stem */}
+        <mesh position={[0, height * 0.4, 0]} castShadow>
+          <cylinderGeometry args={[0.015, 0.022, height * 0.8, 12]} />
+          <meshStandardMaterial color={stemColor} roughness={0.85} metalness={0.0} />
+        </mesh>
+
+        {/* Stem leaves */}
+        {[0, 1].map((i) => (
+          <mesh
+            key={`leaf-${i}`}
+            position={[Math.cos(i * Math.PI) * 0.08, height * (0.3 + i * 0.2), Math.sin(i * Math.PI) * 0.04]}
+            rotation={[0.3, i * Math.PI, -0.2]}
+            castShadow
+          >
+            <boxGeometry args={[0.08, 0.25, 0.02]} />
+            <meshStandardMaterial color={new THREE.Color(stemColor).multiplyScalar(0.9)} roughness={0.7} />
+          </mesh>
+        ))}
+
+        {/* Flower head - multiple petal layers for realism */}
+        {/* Outer petal circle */}
+        {Array.from({ length: petalCount }).map((_, i) => {
+          const angle = (i / petalCount) * Math.PI * 2;
+          const radius = spread * 0.35;
+          const x = Math.cos(angle) * radius;
+          const z = Math.sin(angle) * radius;
+
+          return (
+            <mesh
+              key={`petal-outer-${i}`}
+              position={[x, height * 0.95, z]}
+              rotation={[0.2, angle, Math.sin(angle) * 0.3]}
+              castShadow
+              receiveShadow
+            >
+              <sphereGeometry args={[outerPetalSize, 14, 14]} />
+              <meshStandardMaterial
+                color={petalColor}
+                roughness={0.38}
+                metalness={0.0}
+                emissive={new THREE.Color(petalColor).multiplyScalar(0.04)}
+                emissiveIntensity={0.05}
+              />
+            </mesh>
+          );
+        })}
+
+        {/* Inner petal circle for depth */}
+        {Array.from({ length: Math.max(3, Math.floor(petalCount * 0.6)) }).map((_, i) => {
+          const angle = (i / Math.max(3, Math.floor(petalCount * 0.6))) * Math.PI * 2 + Math.PI / petalCount;
+          const radius = spread * 0.2;
+          const x = Math.cos(angle) * radius;
+          const z = Math.sin(angle) * radius;
+          const brightColor = new THREE.Color(petalColor).multiplyScalar(1.15);
+          return (
+            <mesh
+              key={`petal-inner-${i}`}
+              position={[x, height * 0.97, z]}
+              rotation={[0.1, angle, 0]}
+              castShadow
+            >
+              <sphereGeometry args={[innerPetalSize, 12, 12]} />
+              <meshStandardMaterial
+                color={brightColor}
+                roughness={0.33}
+                emissive={brightColor}
+                emissiveIntensity={0.1}
+              />
+            </mesh>
+          );
+        })}
+
+        {/* Center flower head - stamen */}
+        <mesh position={[0, height * 0.99, 0]} castShadow>
+          <sphereGeometry args={[spread * 0.12, 12, 12]} />
+          <meshStandardMaterial
+            color={plant.id === 'sunflower' ? '#6b3e1d' : '#ffd56a'}
+            roughness={0.45}
+            emissive={plant.id === 'sunflower' ? '#3f2a1a' : '#ffeed6'}
+            emissiveIntensity={0.15}
+          />
+        </mesh>
+
+        {/* Shadow under flower */}
+        <mesh position={[0, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+          <ringGeometry args={[0, spread * 0.5, 32]} />
+          <meshStandardMaterial
+            color="#000000"
+            transparent
+            opacity={0.1}
+            emissive="#000000"
+            emissiveIntensity={0.12}
+          />
+        </mesh>
+
+        {hovered && (
+          <>
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
+              <ringGeometry args={[(spread * 0.5) * 0.18, (spread * 0.5) * 0.22, 48]} />
+              <meshBasicMaterial color="#4ade80" transparent opacity={0.65} side={THREE.DoubleSide} />
+            </mesh>
+            <Html distanceFactor={10} position={[0, height + 0.45, 0]}>
+              <PlantContextMenu
+                plant={plant}
+                onRemove={onRemove}
+                onReplace={onReplace}
+                onReposition={onReposition}
+              />
+            </Html>
+          </>
+        )}
+        <group onPointerEnter={() => setHovered(true)} onPointerLeave={() => setHovered(false)} />
+      </group>
+    );
+  }
+
+  // Default render for unknown types
+  const color3d = new THREE.Color(color);
   return (
     <group ref={groupRef} position={pos} rotation={[0, plant.rotation || 0, 0]}>
-      {/* Tree */}
-      {plant.type === "tree" && (
-        <group>
-          <mesh position={[0, (plant.height ?? 2) * 0.25, 0]}>
-            <cylinderGeometry args={[plant.size * 0.05, plant.size * 0.08, (plant.height ?? 2) * 0.5, 10]} />
-            <meshStandardMaterial color="#5a3825" roughness={0.95} />
-          </mesh>
-          <group position={[0, (plant.height ?? 2) * 0.6, 0]}>
-            <mesh position={[0, 0, 0]}>
-              <sphereGeometry args={[plant.size * 0.18, 16, 16]} />
-              <meshStandardMaterial color={color} roughness={0.7} />
-            </mesh>
-          </group>
-        </group>
-      )}
-
-      {/* Flower */}
-      {plant.type === "flower" && (
-        <group>
-          <mesh position={[0, (plant.height ?? 0.8) * 0.5, 0]}>
-            <cylinderGeometry args={[plant.size * 0.01, plant.size * 0.015, (plant.height ?? 0.8), 6]} />
-            <meshStandardMaterial color="#3f7a3b" roughness={0.75} />
-          </mesh>
-          {[0,1,2,3,4].map((i)=>(
-            <mesh key={i} position={[Math.cos((i/5)*Math.PI*2)* (plant.size*0.07), plant.height ?? 0.8, Math.sin((i/5)*Math.PI*2) * (plant.size*0.07)]}>
-              <sphereGeometry args={[plant.size*0.05,8,8]} />
-              <meshStandardMaterial color={color} roughness={0.35} />
-            </mesh>
-          ))}
-        </group>
-      )}
-
-      {/* Grass */}
-      {plant.type === "grass" && (
-        <group>
-          {[...Array(8)].map((_,i)=>(
-            <mesh key={i} position={[Math.cos((i/8)*Math.PI*2)*plant.size*0.04, (plant.height??0.6)/2, Math.sin((i/8)*Math.PI*2)*plant.size*0.04]} rotation={[0, (i/8)*Math.PI*2, Math.PI*0.08]}>
-              <boxGeometry args={[plant.size*0.02, plant.height ?? 0.8, plant.size*0.01]} />
-              <meshStandardMaterial color={color} roughness={0.95} />
-            </mesh>
-          ))}
-        </group>
-      )}
-
-      {/* Selection ring + delete */}
+      <mesh castShadow receiveShadow>
+        <sphereGeometry args={[spread * 0.4, 16, 16]} />
+        <meshStandardMaterial color={color3d} roughness={0.7} />
+      </mesh>
       {hovered && (
         <>
-          <mesh rotation={[-Math.PI/2,0,0]} position={[0,0.01,0]}>
-            <ringGeometry args={[ (plant.size ?? 1) * 0.18, (plant.size ?? 1) * 0.22, 48 ]} />
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
+            <ringGeometry args={[(spread * 0.5) * 0.18, (spread * 0.5) * 0.22, 48]} />
             <meshBasicMaterial color="#4ade80" transparent opacity={0.65} side={THREE.DoubleSide} />
           </mesh>
-          <Html distanceFactor={10} position={[0, (plant.height ?? 1) + 0.45, 0]}>
-            <button onClick={(e)=>{e.stopPropagation(); onRemove && onRemove(plant.id);}} className="glass-panel p-2 rounded-lg hover:bg-destructive hover:text-destructive-foreground transition-colors cursor-pointer" style={{pointerEvents:'auto'}}>
-              <Trash2 className="w-4 h-4" />
-            </button>
+          <Html distanceFactor={10} position={[0, height + 0.45, 0]}>
+            <PlantContextMenu
+              plant={plant}
+              onRemove={onRemove}
+              onReplace={onReplace}
+              onReposition={onReposition}
+            />
           </Html>
         </>
       )}
-      <group onPointerEnter={()=>setHovered(true)} onPointerLeave={()=>setHovered(false)} />
+      <group onPointerEnter={() => setHovered(true)} onPointerLeave={() => setHovered(false)} />
     </group>
   );
 };

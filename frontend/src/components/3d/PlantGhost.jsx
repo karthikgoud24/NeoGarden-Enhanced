@@ -6,13 +6,38 @@ import * as THREE from "three";
  * PlantGhost.jsx - simplified translucent preview for shrubs/flowers/trees.
  */
 
-export const PlantGhost = ({ plant, position = [0, 0.02, 0] }) => {
+export const PlantGhost = ({ 
+  plant, 
+  position = [0, 0.02, 0],
+  onEnterValidPosition,
+  onLeaveValidPosition
+}) => {
   const ref = useRef();
+  const lastValidStateRef = useRef(false);
 
   useFrame((state) => {
     if (!ref.current) return;
     ref.current.position.y = position[1] + 0.12 + Math.sin(state.clock.elapsedTime * 1.9) * 0.05;
     ref.current.rotation.y = Math.sin(state.clock.elapsedTime * 0.7) * 0.25;
+    
+    // For now, assume the position is valid (the ghost is visible)
+    // In a real implementation, you might check terrain collision or other constraints
+    const isCurrentlyValid = true;
+    
+    // Call handlers when state changes
+    if (isCurrentlyValid && !lastValidStateRef.current) {
+      // Entering valid position
+      if (onEnterValidPosition) {
+        onEnterValidPosition(position, true);
+      }
+      lastValidStateRef.current = true;
+    } else if (!isCurrentlyValid && lastValidStateRef.current) {
+      // Leaving valid position
+      if (onLeaveValidPosition) {
+        onLeaveValidPosition();
+      }
+      lastValidStateRef.current = false;
+    }
   });
 
   const ghost = useMemo(() => {

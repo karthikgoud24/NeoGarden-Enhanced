@@ -10,30 +10,43 @@ export const GardenScene = ({
   plants,
   selectedPlant,
   placingMode,
+  editingPlantId,
   onPlantPlace,
   onPlantMove,
   onPlantRemove,
   onPlacingComplete
+  ,previewSuggestion, previewVisible
 }) => {
   const [hoveredPosition, setHoveredPosition] = useState(null);
 
-  const handlePlantPlacement = (position) => {
-    if (!selectedPlant || !placingMode) return;
+  // This handler is called from Garden3D when terrain is clicked
+  // It receives the full plant data with position already set
+  const handlePlantPlacement = (plantData) => {
+    if (!plantData) return;
 
-    // Check if position is within land boundaries (simplified check)
-    const isWithinBounds = true; // We'll implement proper boundary checking in Garden3D
-
-    if (isWithinBounds) {
-      onPlantPlace({
-        ...selectedPlant,
-        position: position,
-        rotation: Math.random() * Math.PI * 2 // Random rotation
-      });
-      toast.success(`${selectedPlant.name} planted!`);
-      onPlacingComplete();
+    if (editingPlantId) {
+      // Repositioning existing plant
+      onPlantMove(editingPlantId, plantData.position);
+      toast.success(`${plantData.name} repositioned!`);
     } else {
-      toast.error('Cannot place plant outside land boundaries');
+      // New plant placement
+      onPlantPlace(plantData);
+      toast.success(`${plantData.name} planted!`);
     }
+    
+    onPlacingComplete();
+  };
+
+  // Handler for when a plant ghost enters a valid position (hover over valid terrain)
+  const handlePlantGhostEnterValidPosition = (position, isValid) => {
+    if (isValid) {
+      setHoveredPosition(position);
+    }
+  };
+
+  // Handler for when a plant ghost leaves the valid position area
+  const handlePlantGhostLeaveValidPosition = () => {
+    setHoveredPosition(null);
   };
 
   return (
@@ -80,6 +93,10 @@ export const GardenScene = ({
             onPlantMove={onPlantMove}
             onPlantRemove={onPlantRemove}
             setHoveredPosition={setHoveredPosition}
+            onPlantGhostEnterValidPosition={handlePlantGhostEnterValidPosition}
+            onPlantGhostLeaveValidPosition={handlePlantGhostLeaveValidPosition}
+            previewSuggestion={previewSuggestion}
+            previewVisible={previewVisible}
           />
 
           {/* Controls */}
@@ -117,9 +134,13 @@ export const GardenScene = ({
 
       {/* Hover indicator */}
       {placingMode && hoveredPosition && (
-        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 glass-panel px-4 py-2 rounded-full">
-          <p className="text-sm font-medium text-foreground">
-            Click to place {selectedPlant?.name}
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 glass-panel px-6 py-3 rounded-full shadow-lg border border-primary/30">
+          <p className="text-sm font-medium text-foreground text-center">
+            {editingPlantId ? (
+              <>✓ Click to reposition {selectedPlant?.name}</>
+            ) : (
+              <>✓ Click to place {selectedPlant?.name}</>
+            )}
           </p>
         </div>
       )}

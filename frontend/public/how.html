@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>How It Works — NeoGarden</title>
+  <style>
+    :root{--bg:#071026;--card:#0b1220;--muted:#9fb0c8;--accent:#06b6d4;color-scheme:dark}
+    html,body{height:100%;margin:0;background:linear-gradient(180deg,#071026,#020617);font-family:Inter,system-ui,Arial;color:#e6f4ff}
+    .wrap{max-width:980px;margin:36px auto;padding:28px;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);border:1px solid rgba(255,255,255,0.03);border-radius:12px}
+    h1{margin:0 0 8px;font-size:28px}
+    h2{font-size:18px;margin:20px 0 8px}
+    p{color:var(--muted);line-height:1.6}
+    pre{background:#02121a;padding:12px;border-radius:8px;color:#cfeff6;overflow:auto}
+    .step{margin:14px 0;padding:12px;border-radius:8px;background:rgba(255,255,255,0.02)}
+    a{color:#7dd3fc}
+    .toplinks{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+    .btn{background:linear-gradient(90deg,#06b6d4,#7c3aed);padding:8px 12px;border-radius:8px;color:#fff;text-decoration:none}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="toplinks"><div><strong>NeoGarden</strong> — How it Works</div><div><a class="btn" href="/">Open App</a></div></div>
+    <h1>How to design your garden — step-by-step</h1>
+    <p>This page loads as its own site so you can follow a full walkthrough. Each step includes practical tips and expected outcomes.</p>
+
+    <div class="step">
+      <h2>1) Start: Choose an area</h2>
+      <p>Click <em>Start Designing</em> in the app to begin. You will be asked to provide a rough area in square meters or feet. Be conservative — add a little buffer for pathways.</p>
+      <pre>// Example area config
+{
+  "units": "m2",
+  "size": 72
+}
+</pre>
+    </div>
+
+    <div class="step">
+      <h2>2) Draw Land Boundary</h2>
+      <p>Use the land drawing tool to click and define the perimeter of your garden. The app will smooth corners — for precise shapes, zoom in and add extra points.</p>
+    </div>
+
+    <div class="step">
+      <h2>3) Light & Soil Considerations</h2>
+      <p>Before placing plants, note the sun exposure and soil type. Full sun plants need 6+ hours per day. For shaded areas, pick shade-tolerant species.</p>
+    </div>
+
+    <div class="step">
+      <h2>4) Place Plants</h2>
+      <p>Select plants from the library and click where you'd like to place them. Use the spacing hints to avoid crowding. For trees, place them first, then shrubs, then groundcovers.</p>
+    </div>
+
+    <div class="step">
+      <h2>5) Use Layers & Mood</h2>
+      <p>Toggle lighting and preview modes to check how shadows fall at different times of day. The preview helps spot sight-lines and scale issues.</p>
+    </div>
+
+    <div class="step">
+      <h2>6) Save & Export</h2>
+      <p>Use Save or Save As to keep different design iterations. Export produces a JSON file you can re-import later.</p>
+    </div>
+
+    <div class="step">
+      <h2>7) Practical Planting Tips</h2>
+      <ul>
+        <li>Group plants by water needs to simplify irrigation.</li>
+        <li>Use taller elements to screen views, low elements to define paths.</li>
+        <li>Leave maintenance space — avoid planting too close to walkways.</li>
+      </ul>
+    </div>
+
+    <h2>Deep Troubleshooting</h2>
+    <p>If plants overlap or collide: select and nudge them, or use the spacing tool to automatically distribute within an area. When importing older designs, check that plant IDs resolve; you may need to replace missing species from the library.</p>
+
+    <p style="margin-top:24px"><a href="/" class="btn">Back to NeoGarden</a></p>
+  </div>
+</body>
+</html>

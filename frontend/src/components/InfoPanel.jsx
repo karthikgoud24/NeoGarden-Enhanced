@@ -27,9 +27,9 @@ export const InfoPanel = ({ landShape, plants }) => {
   const plantTypes = [...new Set(plants.map(p => p.type))].length;
 
   return (
-    <Card className="fixed right-4 top-24 w-72 glass-panel">
+    <Card className="w-80 glass-panel shadow-lg">
       <div className="p-4 border-b border-border">
-        <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+        <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
           <Info className="w-5 h-5 text-primary" />
           Garden Info
         </h2>
