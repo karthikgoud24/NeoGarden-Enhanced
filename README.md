@@ -176,6 +176,17 @@ If no features were added after Release 1 we would mention **NIL**, but in this 
 | Future DB   | (Planned) Can be extended to MongoDB/MySQL etc. |
 
 ---
+## Snapshots Of the Project
+![Alt Text](Screenshot%202026-02-14%20162000.png)
+![Alt Text](Screenshot%202026-02-14%20162023.png)
+![Alt Text](Screenshot%202025-11-28%20082739.png)
+![Alt Text](Screenshot%202025-11-28%20082807.png)
+![Alt Text](Screenshot%202025-11-28%20083129.png)
+![Alt Text](Screenshot%202025-11-28%20083216.png)
+![Alt Text](Screenshot%202025-11-28%20083146.png)
+
+
+
 
 ## 8. How to Run the Project
 
